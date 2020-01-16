@@ -1,0 +1,45 @@
+{
+  "name": "booktracker",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "server/server.js",
+  "dependencies": {
+    "@babel/core": "^7.8.3",
+    "@babel/plugin-transform-async-to-generator": "^7.8.3",
+    "@babel/plugin-transform-runtime": "^7.8.3",
+    "@babel/preset-env": "^7.8.3",
+    "@babel/preset-react": "^7.8.3",
+    "apollo-boost": "^0.4.7",
+    "apollo-server-express": "^2.9.16",
+    "babel-loader": "^8.0.6",
+    "bootstrap": "^4.4.1",
+    "css-loader": "^3.4.2",
+    "express": "^4.17.1",
+    "html-webpack-plugin": "^3.2.0",
+    "mongoose": "^5.8.7",
+    "react": "^16.12.0",
+    "react-bootstrap": "^1.0.0-beta.16",
+    "react-dom": "^16.12.0",
+    "style-loader": "^1.1.2",
+    "webpack": "^4.41.5",
+    "webpack-dev-middleware": "^3.7.2",
+    "write-file-webpack-plugin": "^4.5.1",
+    "xml2js": "^0.4.23"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server/server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheBrainChain/BookTracker.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TheBrainChain/BookTracker/issues"
+  },
+  "homepage": "https://github.com/TheBrainChain/BookTracker#readme"
+}
