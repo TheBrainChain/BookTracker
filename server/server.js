@@ -1,100 +1,102 @@
-import express from 'express'
-import webpack from 'webpack'
+import express from "express";
+import webpack from "webpack";
 import webpackDevMiddleware from "webpack-dev-middleware";
-import config from "../webpack.config.js"
-import path from 'path'
-import fs from 'fs'
-import server from './schemas.js'
-import {
-    dbConn,
-    addBook,
-} from './mongo.js'
+import config from "../webpack.config.js";
+import path from "path";
+import fs from "fs";
+import fetch from "node-fetch";
+import xml2js from "xml2js";
+
+
+import { addBook, lookupBooks, dbConn, updateBooks } from "./mongo.js";
+
 const __dirname = path.resolve(path.dirname(""));
 const app = express();
-const compiler = webpack(config);
+app.use(webpackDevMiddleware(webpack(config)));
+app.use(express.json());
 
-server.applyMiddleware({
-    app
+app.get("/", (req, res) => res.send(`${__dirname}/dist`));
+app.get("/config", (req, res) => {
+  let _config = fs.readFileSync("./server/config.json", "utf-8");
+  res.send(JSON.stringify(JSON.parse(_config)));
+});
+app.get("/shelves/:user", async (req, res) => {
+  let request = await fetch(
+    // `https://www.goodreads.com/shelf/list.xml?user_id=${process.env.GR_userID}&key=${process.env.GR_key}`
+    `https://www.goodreads.com/review/list?v=2&id=${process.env.GR_userID}&per_page=200&key=${process.env.GR_key}`
+  );
+  let resp = await request.text();
+  xml2js.parseString(resp, (err, result) => {
+    console.log(result.GoodreadsResponse.reviews[0])
+    // let shelves = result.GoodreadsResponse.shelves[0].user_shelf
+    // console.log(shelves)
+  })
+  })
+app.get("/bookstore/:user", async (req, res) => {
+  let request = await fetch(
+    `https://www.goodreads.com/review/list?v=2&id=${process.env.GR_userID}&per_page=200&key=${process.env.GR_key}`
+  );
+  let resp = await request.text();
+
+  dbConn().then(() => {
+    lookupBooks(req.params.user).then((databaseEntries) => {
+      xml2js.parseString(resp, (err, result) => {
+        // console.log(result.GoodreadsResponse.reviews)
+        // console.log(result.GoodreadsResponse.Request)
+        let goodreadsRaw = result.GoodreadsResponse.reviews[0].review;
+        let goodreadsEntries = goodreadsRaw.map((grEntry, grIndex) => {
+          let title = grEntry.book[0].title[0];
+          let pages = parseFloat(grEntry.book[0].num_pages[0]);
+          if (pages == 0) pages = 1;
+          return {
+            title,
+            pages,
+            progress: 0,
+            completed: false,
+          };
+        });
+        // console.log(goodreadsRaw)
+
+        let missingEntries = goodreadsEntries.filter(
+          (o1) => !databaseEntries.some((o2) => o1.title === o2.title)
+        );
+        if (missingEntries.length > 0) {
+          missingEntries.forEach(async (entry) => {
+            let pageValue;
+            if (isNaN(entry.pages)) {
+              pageValue = 1
+            }
+            else {
+              pageValue = entry.pages
+            }
+            let newDoc = await addBook(
+              {
+                title: entry.title,
+                pages: pageValue,
+                progress: entry.progress,
+                completed: entry.completed,
+              },
+              req.params.user
+            );
+            res.send(newDoc);
+          });
+        } else {
+          res.send(databaseEntries);
+        }
+      });
+    });
+  });
 });
 
-dbConn();
-// addBook({
-//     title: 'test',
-//     pages: 12,
-//     progress: 11,
-//     completed: false
-// });
-app.use(webpackDevMiddleware(compiler));
-app.use(express.json())
+app.post("/update/:user", (req, res) => {
+  dbConn().then(() => {
+    updateBooks(req.params.user, {
+      title: req.body.title,
+      pages: req.body.pages,
+      progress: req.body.progress,
+    });
+    lookupBooks(req.params.user).then((bookList) => res.send(bookList));
+  })
+});
 
-
-app.get('/', (req, res) => {
-    res.send(`${__dirname}/dist`)
-})
-
-
-app.post('/bookstore', (req, res) => {
-    let currentDataStore = fs.readFileSync('./server/datastore.json', 'utf-8')
-    let parsedDatastore = JSON.parse(currentDataStore);
-    let dsEntries = Object.keys(parsedDatastore).map(key => {
-        return parsedDatastore[key].map(entry => entry.title)
-    })
-    let inProgress = parsedDatastore.InProgress;
-    req.body.forEach(entry => {
-        if (!dsEntries.flat().includes(entry.title)) {
-            entry['progress'] = 0;
-            entry['completed'] = false;
-            inProgress.push(entry)
-        }
-    })
-    parsedDatastore.InProgress = inProgress;
-    fs.writeFileSync('./server/datastore.json', JSON.stringify(parsedDatastore), 'utf-8')
-})
-
-app.get('/config', (req, res) => {
-    let _config = fs.readFileSync('./server/config.json', 'utf-8')
-    let config = JSON.parse(_config)
-    let id = config.People[Object.keys(config.People)[1]]
-    console.log(id)
-    res.send(JSON.stringify(id))
-})
-
-app.get('/bookstore/:goal', (req, res) => {
-    let data = fs.readFileSync('./server/datastore.json', 'utf-8')
-    let parsedData = JSON.parse(data);
-    if (req.params.goal == 'Completed') {
-        res.send(parsedData.Completed)
-    }
-    if (req.params.goal == 'InProgress') {
-        res.send(parsedData.InProgress)
-    } else {
-        res.send(parsedData)
-    }
-})
-
-app.post('/update', (req, res) => {
-    let data = fs.readFileSync('./server/datastore.json', 'utf-8')
-    let parsedData = JSON.parse(data);
-    let newBooks = parsedData.InProgress.map(books => {
-        if (books.title == req.body.title) {
-            books.progress = req.body.progress
-            if (req.body.progress == books.pages) {
-                books.completed = true
-            } else {
-                books.completed = false;
-            }
-        }
-        return books;
-    })
-    let writeAgain = true;
-    parsedData.InProgress = newBooks;
-    if (writeAgain) {
-        writeAgain = false
-        fs.writeFileSync('./server/datastore.json', JSON.stringify(parsedData), 'utf-8', () => {
-            writeAgain = true;
-        })
-    }
-    res.send(parsedData);
-})
-
-app.listen(9090)
+app.listen(9090, () => console.log("Listening..."));

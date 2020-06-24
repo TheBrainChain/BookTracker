@@ -2,7 +2,6 @@ import path from 'path'
 let __dirname = path.resolve(path.dirname(""));
 import WriteFilePlugin from 'write-file-webpack-plugin';
 import HtmlWebpackPlugin from 'html-webpack-plugin'
-console.log(__dirname)
 const module = {
     mode: 'development',
     entry: './src/index.jsx',

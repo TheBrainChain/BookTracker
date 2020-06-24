@@ -1,0 +1,19 @@
+version: '3.1'
+services:
+  booktracker:
+    build: .
+    secrets: 
+      - GR_KEY
+    ports: 
+      - "9090:9090"
+      # - "27017:27017"
+    tty: true
+
+networks:
+  default:
+    external:
+      name: cronedb_default
+
+secrets:
+  GR_KEY: 
+    file: ./GR_KEY.secret

@@ -2,3 +2,5 @@ node_modules
 dist
 server/config.json
 server/datastore.json
+.vscode/*
+.env
